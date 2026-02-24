@@ -1,0 +1,11 @@
+[build]
+#target = "arm-unknown-linux-musleabihf"
+target = "arm-unknown-linux-gnueabihf"
+
+[target.arm-unknown-linux-musleabihf]
+linker = ".cargo/zigcc-arm-musleabihf.sh"
+
+[target.arm-unknown-linux-gnueabihf]
+linker = ".cargo/zigcc-arm-gnueabihf.sh"
+
+
