@@ -44,4 +44,7 @@ if [[ -z "$ZIG_PATH" ]]; then
   exit 127
 fi
 
-exec "$ZIG_PATH" cc -target arm-linux-gnueabihf "$@"
+GLIBC_VERSION="${ZIG_GLIBC_VERSION:-2.28}"
+TARGET_TRIPLE="arm-linux-gnueabihf.${GLIBC_VERSION}"
+
+exec "$ZIG_PATH" cc -target "$TARGET_TRIPLE" "$@"
