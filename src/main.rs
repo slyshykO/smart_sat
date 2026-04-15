@@ -103,6 +103,30 @@ fn raw48(le6: &[u8]) -> u64 {
     v
 }
 
+fn decode_temperature_c(id: u8, raw6: &[u8]) -> Option<i16> {
+    // Common ATA SMART temperature attributes. Encoding is vendor specific,
+    // but often the low byte is current temperature in whole Celsius.
+    if raw6.len() < 6 {
+        return None;
+    }
+    if id != 190 && id != 194 && id != 231 {
+        return None;
+    }
+
+    let primary = raw6[0] as i8 as i16;
+    if (-40..=125).contains(&primary) {
+        return Some(primary);
+    }
+
+    for &b in raw6.iter().take(6) {
+        let t = b as i8 as i16;
+        if (-40..=125).contains(&t) {
+            return Some(t);
+        }
+    }
+    None
+}
+
 #[unsafe(no_mangle)]
 pub extern "C" fn main(argc: libc::c_int, argv: *const *const libc::c_char) -> libc::c_int {
     let mut out = FdWriter(1);
@@ -204,6 +228,7 @@ pub extern "C" fn main(argc: libc::c_int, argv: *const *const libc::c_char) -> l
     }
 
     let _ = writeln!(out, "SMART attributes (selected):");
+    let mut temperature_c: Option<i16> = None;
     // Attribute table typically: offset 2, 30 entries, 12 bytes each.
     for i in 0..30usize {
         let base = 2 + i * 12;
@@ -211,11 +236,25 @@ pub extern "C" fn main(argc: libc::c_int, argv: *const *const libc::c_char) -> l
         if id == 0 {
             continue;
         }
-        let raw = raw48(&data[base + 5..base + 11]);
+        let raw6 = &data[base + 5..base + 11];
+        let raw = raw48(raw6);
+
+        if temperature_c.is_none() {
+            temperature_c = decode_temperature_c(id, raw6);
+        }
 
         // A few common IDs (vendor-specific interpretation still applies):
         if id == 5 || id == 9 || id == 194 || id == 197 || id == 198 {
             let _ = writeln!(out, "  id {:3} raw {}", id, raw);
+        }
+    }
+
+    match temperature_c {
+        Some(t) => {
+            let _ = writeln!(out, "disk temperature: {} C", t);
+        }
+        None => {
+            let _ = writeln!(out, "disk temperature: unavailable (no temp attribute found)");
         }
     }
 
